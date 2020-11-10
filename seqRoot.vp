@@ -1,0 +1,62 @@
+// seqRoot.vp
+//; my $bW = parameter( name=>"SqrBitWidth", val=>16, doc=>"Width of input");
+//; my $iW = parameter( name=>"RootIntWidth", val=>8, doc=>"Width of input");
+//; my $fW = parameter( name=>"RootFracWidth", val=>8, doc=>"Width of input");
+//; my $oW = $iW + $fW ;
+
+module `mname` (
+	input  logic [`$bW-1`:0] s,
+	input  logic s_vld,
+	output logic s_rdy,
+	input  logic clk,
+	input  logic rst,
+	output logic r_vld,
+	input  logic start,
+	output logic [`$oW-1`:0] r
+);
+ 	logic  			   start, stop;
+        logic  	           r_vld, s_rdy, s_vld;
+ 	logic [`$bW-1`:0]     g_tmp, g_tmp_nxt;
+ 	logic [`$bW-1`:0]                    g;
+ 	logic [`2*$bW-1`:0]                g_s;
+ 	logic [`$bW-1`:0]     s_tmp, s_tmp_nxt;
+ 	logic [`$bW-1`:0]     r_tmp, r_tmp_nxt;
+ 	logic [`$bW-1`:0]         g_2, g_x, x2;
+ 	logic [`2*$bW-1`:0]                gms;
+ 	logic [`2*$bW-1`:0]              s_ext;
+
+////////////////////////////////////
+// D Instatiations 
+////////////////////////////////////
+
+//; my $gFlop = generate( "dff", "d_G", Width=>[($bW)]);
+//; my $sFlop = generate( "dff", "d_S", Width=>[($bW)]);
+//; my $rFlop = generate( "dff", "d_R", Width=>[($bW)]);
+//;## my $sFlop = generate( "dff", "d_S", Width=>[($bW)]);
+
+`$gFlop->instantiate()` ( .din(g_tmp_nxt), .clk, .rst, .q(g_tmp) );
+`$sFlop->instantiate()` ( .din(s_tmp_nxt), .clk, .rst, .q(s_tmp) );
+`$rFlop->instantiate()` ( .din(r_tmp_nxt), .clk, .rst, .q(r_tmp) );
+//`$sFlop->instantiate()` ( .din(stop_nxt), .clk, .rst, .q(stop) );
+assign g = 16'h0050;
+
+//assign start = s_rdy && s_vld;
+assign g_tmp_nxt = start ? g : g_x;
+assign s_tmp_nxt = start ? s : s_tmp;  
+
+assign g_s = g_tmp*g_tmp;
+assign g_2 = 2*g_tmp;
+assign s_ext = {`$fW`'d0,s_tmp,`$fW`'d0};
+
+assign gms = g_s-s_ext;
+assign x2  = gms/g_2;
+
+assign g_x = g_tmp - x2;
+assign r = r_tmp;
+assign r_tmp_nxt = g_x - 16'd1;
+assign stop = g_x==g_tmp;
+assign s_rdy = stop;
+assign r_vld = stop;
+
+endmodule: `mname`
+

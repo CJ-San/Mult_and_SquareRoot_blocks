@@ -1,0 +1,75 @@
+// seqMult.vp
+
+//; # Good Habits
+//; use strict ;                   # Use a strict interpretation
+//; use warnings FATAL=>qw(all);   # Turn warnings into errors
+//; use diagnostics ;              # Print helpful info, for errors
+
+//; # Parameters
+//; my $bW = parameter( name=>"bitWidth", val=>16 , doc=>"width of the input");
+
+module `mname` (
+	input  logic [`$bW-1`:0] a,
+	input  logic [`$bW-1`:0] b,
+	input  logic             ab_valid,
+	output logic             ab_ready,
+
+	input  logic             clk,
+	input  logic             rst,
+
+	output logic [`2*$bW`:0] z,
+	output logic             z_valid
+	);
+
+	logic [`2*$bW-1`:0] a_tmp, a_tmp_nxt, a_shift, partial ;
+	logic [`$bW-1`:0]   b_tmp, b_tmp_nxt, b_shift, shift ;
+	logic [`2*$bW`:0]   z_nxt, accumulation ;
+	logic               start, stop, stop_nxt ; 
+
+	//////////////////////////////
+	// Explicit flops for state
+	//////////////////////////////
+
+	//; my $aFlop = generate( "dff", "d_A", Width=>[(2*$bW)]);
+	//; my $bFlop = generate( "dff", "d_B", Width=>[($bW)]);
+	//; my $zFlop = generate( "dff", "d_Z", Width=>[(2*$bW+1)]);
+	//; my $sFlop = generate( "dff", "d_s", Width=>[(1)]);
+	`$aFlop->instantiate()` ( .din(a_tmp_nxt), .clk, .rst, .q(a_tmp) );
+	`$bFlop->instantiate()` ( .din(b_tmp_nxt), .clk, .rst, .q(b_tmp) );
+	`$zFlop->instantiate()` ( .din(z_nxt), .clk, .rst, .q(z) );
+	`$sFlop->instantiate()` ( .din(stop_nxt), .clk, .rst, .q(stop) );
+
+
+	//////////////////////////////
+	// Combinatorial Portion
+	//////////////////////////////
+
+	// In this version we will always shift by 1
+	assign shift = `$bW-1`'d1 ;
+
+	// We can start when ab is ready and valid
+	assign start = ab_ready && ab_valid ;
+
+	// We can stop when the multiplier is zero 
+	assign stop_nxt = b_tmp_nxt[`$bW-1`:0]== `$bW-1`'d0 ;
+	assign ab_ready = stop ;
+	assign z_valid = stop ; 
+
+	// When we start, we flow the new values, otw the shifted values
+	assign a_tmp_nxt = start ? a : a_shift ;
+	assign b_tmp_nxt = start ? b : b_shift ; 
+
+	//Shift the values by shift 
+	assign a_shift = a_tmp <<< shift ;
+	assign b_shift = b_tmp >>> shift ; 
+
+	// Partial product is shifted a if b[i] is 1 
+	assign partial = b_tmp[0] ? a_tmp : `2*$bW-1`'d0 ;
+
+	// Accumulate the partial product
+	assign accumulation = {1'b0,partial} + z ;
+
+	// z_nxt is the accumulate partial product 
+	assign z_nxt = start ? `2*$bW+1`'d0 : accumulation ;
+
+endmodule
